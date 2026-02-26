@@ -1,0 +1,153 @@
+import { Movie, TmdbListResponse } from '../types';
+
+export const MOCK_MOVIES: Movie[] = [
+  {
+    id: 550,
+    title: 'Dövüş Kulübü',
+    overview:
+      'Uykusuzluk çeken isimsiz bir anlatıcı, sabun satıcısı Tyler Durden ile tanışır. İkili birlikte, yaşamı çıkmaza girmiş erkeklere yönelik yer altı dövüş kulübü kurar.',
+    poster_path: '/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg',
+    backdrop_path: '/fCayJrkfRaCRCTh8GqN30f8oyQF.jpg',
+    release_date: '1999-10-15',
+    vote_average: 8.4,
+    vote_count: 27500,
+    genre_ids: [18, 53],
+    popularity: 94.5,
+    adult: false,
+    original_language: 'en',
+    original_title: 'Fight Club',
+  },
+  {
+    id: 238,
+    title: 'Baba',
+    overview:
+      'Yaşlanan bir organize suç hanedanının babası, imparatorluğunun kontrolünü tereddütlü oğluna devreder.',
+    poster_path: '/3bhkrj58Vtu7enYsLegjont4BGPX.jpg',
+    backdrop_path: '/tmU7GeKVybMWFButWEGl2M4GeiP.jpg',
+    release_date: '1972-03-14',
+    vote_average: 8.7,
+    vote_count: 19200,
+    genre_ids: [18, 80],
+    popularity: 110.3,
+    adult: false,
+    original_language: 'en',
+    original_title: 'The Godfather',
+  },
+  {
+    id: 155,
+    title: 'Kara Şövalye',
+    overview:
+      'Gotham şehri kaosa sürüklenirken Batman, Joker adıyla bilinen tehditle yüzleşmek zorunda kalır.',
+    poster_path: '/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
+    backdrop_path: '/hkBaDkMWbLaf8B1lsWsKX7Ew3Xq.jpg',
+    release_date: '2008-07-18',
+    vote_average: 8.5,
+    vote_count: 31000,
+    genre_ids: [28, 80, 18, 53],
+    popularity: 123.7,
+    adult: false,
+    original_language: 'en',
+    original_title: 'The Dark Knight',
+  },
+  {
+    id: 299536,
+    title: 'Avengers: Sonsuzluk Savaşı',
+    overview:
+      'Avengers ve müttefikleri, güçlü Thanos\'u durdurmak için bir araya gelir.',
+    poster_path: '/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg',
+    backdrop_path: '/mDfJG3LC3Dqb67AZ52x3Z0jU0uB.jpg',
+    release_date: '2018-04-27',
+    vote_average: 8.3,
+    vote_count: 29000,
+    genre_ids: [12, 28, 878],
+    popularity: 155.2,
+    adult: false,
+    original_language: 'en',
+    original_title: 'Avengers: Infinity War',
+  },
+  {
+    id: 19404,
+    title: 'Dilwale Dulhania Le Jayenge',
+    overview:
+      'Avrupa\'da tatile çıkan iki Hintli genç aşık olur; ancak aileleri bu birlikteliğe karşı çıkar.',
+    poster_path: '/2CAL2433ZeIihfX1Hb2139CX0pW.jpg',
+    backdrop_path: '/90ez6ArvpO8bvpyIngBrqBeEhJw.jpg',
+    release_date: '1995-10-20',
+    vote_average: 8.6,
+    vote_count: 4200,
+    genre_ids: [35, 18, 10749],
+    popularity: 36.8,
+    adult: false,
+    original_language: 'hi',
+    original_title: 'Dilwale Dulhania Le Jayenge',
+  },
+  {
+    id: 680,
+    title: 'Ucuz Roman',
+    overview:
+      'Los Angeles\'taki suç dünyasında birbirine bağlı birden fazla hikâye anlatılır.',
+    poster_path: '/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg',
+    backdrop_path: '/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
+    release_date: '1994-09-10',
+    vote_average: 8.5,
+    vote_count: 25800,
+    genre_ids: [53, 80],
+    popularity: 88.9,
+    adult: false,
+    original_language: 'en',
+    original_title: 'Pulp Fiction',
+  },
+  {
+    id: 13,
+    title: 'Forrest Gump',
+    overview:
+      'Düşük zekâ puanına sahip ama iyi kalpli Alabama\'lı bir adamın hayatı boyunca ülkenin tarihsel olaylarıyla kesişmesi anlatılır.',
+    poster_path: '/saHP97rTPS5eLmrLQEcANmKrsFl.jpg',
+    backdrop_path: '/ghgfzbEV7kbpbi1O8DgJCQ0wnNO.jpg',
+    release_date: '1994-07-06',
+    vote_average: 8.5,
+    vote_count: 26100,
+    genre_ids: [35, 18, 10749],
+    popularity: 76.3,
+    adult: false,
+    original_language: 'en',
+    original_title: 'Forrest Gump',
+  },
+  {
+    id: 278,
+    title: 'Esaretin Bedeli',
+    overview:
+      'Haksız yere mahkûm edilen bankacı Andy Dufresne\'in Shawshank Hapishanesi\'ndeki yılları anlatılır.',
+    poster_path: '/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg',
+    backdrop_path: '/j9XKiZrVeViAixVRzCta7h1VU9W.jpg',
+    release_date: '1994-09-23',
+    vote_average: 8.7,
+    vote_count: 26400,
+    genre_ids: [18, 80],
+    popularity: 81.4,
+    adult: false,
+    original_language: 'en',
+    original_title: 'The Shawshank Redemption',
+  },
+];
+
+export const MOCK_POPULAR_MOVIES: TmdbListResponse<Movie> = {
+  page: 1,
+  results: MOCK_MOVIES.slice(0, 5),
+  total_pages: 1,
+  total_results: 5,
+};
+
+export const MOCK_NOW_PLAYING: TmdbListResponse<Movie> = {
+  page: 1,
+  results: MOCK_MOVIES.slice(2, 7),
+  total_pages: 1,
+  total_results: 5,
+};
+
+export const MOCK_TOP_RATED: TmdbListResponse<Movie> = {
+  page: 1,
+  results: [...MOCK_MOVIES].sort((a, b) => b.vote_average - a.vote_average).slice(0, 5),
+  total_pages: 1,
+  total_results: 5,
+};
