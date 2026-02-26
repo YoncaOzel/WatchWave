@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 16.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_TMDB_API_KEY": "",
+        "EXPO_PUBLIC_TMDB_BASE_URL": "https://api.themoviedb.org/3",
+        "EXPO_PUBLIC_TMDB_IMAGE_BASE_URL": "https://image.tmdb.org/t/p"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

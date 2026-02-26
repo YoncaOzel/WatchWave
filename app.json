@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "WatchWave",
+    "slug": "watchwave",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#141414"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.watchwave.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#141414"
+      },
+      "package": "com.watchwave.app",
+      "googleServicesFile": "./google-services.json"
+    },
+    "scheme": "watchwave",
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
