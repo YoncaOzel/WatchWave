@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeStore } from '../store/themeStore';
@@ -57,25 +58,37 @@ export default function ProfileScreen() {
     return rated.reduce((acc, i) => acc + (i.userRating ?? 0), 0) / rated.length;
   })();
 
+  const performSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await AuthService.signOut();
+      setUser(null);
+    } catch {
+      if (Platform.OS === 'web') {
+        window.alert('Çıkış yapılırken bir sorun oluştu.');
+      } else {
+        Alert.alert('Hata', 'Çıkış yapılırken bir sorun oluştu.');
+      }
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   const handleSignOut = () => {
-    Alert.alert('Çıkış Yap', 'Hesabınızdan çıkmak istediğinizden emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Çıkış Yap',
-        style: 'destructive',
-        onPress: async () => {
-          setIsSigningOut(true);
-          try {
-            await AuthService.signOut();
-            setUser(null);
-          } catch {
-            Alert.alert('Hata', 'Çıkış yapılırken bir sorun oluştu.');
-          } finally {
-            setIsSigningOut(false);
-          }
+    if (Platform.OS === 'web') {
+      if (window.confirm('Hesabınızdan çıkmak istediğinizden emin misiniz?')) {
+        performSignOut();
+      }
+    } else {
+      Alert.alert('Çıkış Yap', 'Hesabınızdan çıkmak istediğinizden emin misiniz?', [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Çıkış Yap',
+          style: 'destructive',
+          onPress: performSignOut,
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const displayName = user?.displayName ?? 'Kullanıcı';

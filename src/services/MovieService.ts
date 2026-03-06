@@ -24,7 +24,7 @@ import {
  * USE_MOCK = true  → mock verilerle çalış (API anahtarı gerekmez)
  * USE_MOCK = false → gerçek TMDB API'ye istek at
  */
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 export const MovieService = {
   // ─── Filmler ──────────────────────────────────────────────────────────

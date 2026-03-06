@@ -60,12 +60,12 @@ export default function DetailScreen({ route, navigation }: Props) {
   const [showListSheet, setShowListSheet] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  const isTV = mediaType === 'tv';
+
   // İlerleme durumu (diziler için)
   const { getProgress, setProgress } = useProgressStore();
   const savedProgress = isTV ? getProgress(id) : undefined;
   const [currentProgress, setCurrentProgress] = useState(savedProgress);
-
-  const isTV = mediaType === 'tv';
 
   useEffect(() => {
     const load = async () => {
