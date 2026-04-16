@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TextInput,
   FlatList,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,12 +30,25 @@ import RatingStars from '../components/RatingStars';
 import AddToListSheet from '../components/AddToListSheet';
 import { SkeletonDetailHeader } from '../components/SkeletonCard';
 import EmptyState from '../components/EmptyState';
+import CommunityReviews from '../components/CommunityReviews';
+import ShareCard from '../components/ShareCard';
 import { logError } from '../utils/errorHandler';
 import { buildBackdropUrl, buildPosterUrl } from '../utils/imageHelper';
 import { formatRuntime, formatYear, formatRating, formatEpisodeLabel } from '../utils/formatters';
 import { Typography } from '../theme/typography';
 import { Spacing, BorderRadius } from '../theme/spacing';
 import type { MovieDetail, TvDetail, Season } from '../types';
+// ViewShot only loaded on native, not on web
+let ViewShot: any = null;
+let captureRef: any = null;
+let Sharing: any = null;
+try {
+  ViewShot = require('react-native-view-shot').default;
+  captureRef = require('react-native-view-shot').captureRef;
+  Sharing = require('expo-sharing');
+} catch {
+  // web / not installed
+}
 
 const { width, height } = Dimensions.get('window');
 const BACKDROP_HEIGHT = height * 0.38;
@@ -59,6 +73,9 @@ export default function DetailScreen({ route, navigation }: Props) {
   const [userNote, setUserNote] = useState('');
   const [showListSheet, setShowListSheet] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef<any>(null);
 
   const isTV = mediaType === 'tv';
 
@@ -180,7 +197,7 @@ export default function DetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const handleSaveRating = () => {
+  const handleSaveRating = async () => {
     if (!detail) return;
     const title = isTV ? (detail as TvDetail).name : (detail as MovieDetail).title;
     const patch = { userRating, userNote: userNote || null };
@@ -200,7 +217,43 @@ export default function DetailScreen({ route, navigation }: Props) {
       addItem('watched', item);
       syncFirestore('watched', item);
     }
+
+    // Also publish to community reviews
+    if (user && (userRating || userNote)) {
+      try {
+        await FirestoreService.addReview(id, user.uid, {
+          uid: user.uid,
+          username: user.displayName ?? 'Anonim',
+          rating: userRating,
+          comment: userNote || null,
+        });
+        setReviewRefreshTrigger((t) => t + 1);
+      } catch {
+        // silently ignore — review is optional
+      }
+    }
+
     Alert.alert('Kaydedildi', 'Puan ve notun kaydedildi.');
+  };
+
+  const handleShare = async () => {
+    if (!detail) return;
+    // Web fallback — just show an alert
+    if (Platform.OS === 'web' || !captureRef || !Sharing) {
+      Alert.alert('Paylaş', `"${title}" filmini/dizisini WatchWave'de izledim!`);
+      return;
+    }
+    try {
+      setIsSharing(true);
+      const uri = await captureRef(shareCardRef, { format: 'jpg', quality: 0.92 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: 'WatchWave ile Paylaş' });
+      }
+    } catch (e) {
+      logError('handleShare', e);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   if (isLoading) {
@@ -279,6 +332,13 @@ export default function DetailScreen({ route, navigation }: Props) {
                 onPress={() => setShowListSheet(true)}
               >
                 <Text style={styles.iconBtnText}>＋</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+                onPress={handleShare}
+                disabled={isSharing}
+              >
+                <Text style={styles.iconBtnText}>{isSharing ? '⏳' : '↑'}</Text>
               </TouchableOpacity>
             </View>
           </SafeAreaView>
@@ -468,6 +528,35 @@ export default function DetailScreen({ route, navigation }: Props) {
             <Text style={styles.saveButtonText}>Kaydet</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Topluluk Yorumları */}
+        <View style={[styles.communitySection, { borderTopColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, paddingHorizontal: Spacing.base }]}>
+            🌐 Topluluk Yorumları
+          </Text>
+          <CommunityReviews tmdbId={id} refreshTrigger={reviewRefreshTrigger} />
+        </View>
+
+        {/* Gizli Share Card - paylaşım için yakalanır */}
+        <View style={styles.hiddenCard} pointerEvents="none">
+          {ViewShot ? (
+            <ViewShot ref={shareCardRef} options={{ format: 'jpg', quality: 0.92 }}>
+              <ShareCard
+                title={title}
+                posterPath={detail.poster_path}
+                rating={detail.vote_average}
+              />
+            </ViewShot>
+          ) : (
+            <View ref={shareCardRef}>
+              <ShareCard
+                title={title}
+                posterPath={detail.poster_path}
+                rating={detail.vote_average}
+              />
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       <AddToListSheet
@@ -635,5 +724,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: Typography.fontSize.base,
     fontWeight: Typography.fontWeight.semiBold,
+  },
+  communitySection: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  hiddenCard: {
+    position: 'absolute',
+    top: -9999,
+    left: -9999,
+    opacity: 0,
   },
 });
