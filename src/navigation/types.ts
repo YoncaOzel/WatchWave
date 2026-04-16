@@ -15,4 +15,5 @@ export type BottomTabParamList = {
 export type RootStackParamList = {
   Main: undefined;
   Detail: { id: number; mediaType: MediaType };
+  PublicProfile: { uid: string };
 };

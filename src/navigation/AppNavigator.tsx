@@ -81,6 +81,12 @@ export default function AppNavigator() {
         component={DetailScreen}
         options={{ presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="PublicProfile"
+        // @ts-ignore dynamic import placeholder
+        component={require('../screens/PublicProfileScreen').default}
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack.Navigator>
   );
 }

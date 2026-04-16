@@ -6,6 +6,8 @@ import {
   getDocs,
   serverTimestamp,
   writeBatch,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { LibraryItem, ListType } from '../store/libraryStore';
@@ -101,5 +103,60 @@ export const FirestoreService = {
     const col = collection(db, 'users', uid, 'progress');
     const snap = await getDocs(col);
     return snap.docs.map((d) => d.data());
+  },
+
+  // === SOCIAL FEATURES === //
+
+  setUserProfile: async (uid: string, data: any) => {
+    await setDoc(doc(db, 'users', uid), data, { merge: true });
+  },
+
+  getUserProfile: async (uid: string) => {
+    const snap = await getDoc(doc(db, 'users', uid));
+    return snap.exists() ? snap.data() : null;
+  },
+
+  searchUsers: async (queryStr: string) => {
+    if (!queryStr.trim()) return [];
+    const lowerQuery = queryStr.toLowerCase().trim();
+    const usersRef = collection(db, 'users');
+    const snap = await getDocs(usersRef);
+    const allUsers = snap.docs.map((d) => ({ uid: d.id, ...d.data() })) as any[];
+    // Client-side substring filter — works regardless of displayNameLowercase field
+    return allUsers.filter((u) => {
+      const name: string = (u.displayNameLowercase ?? u.displayName ?? '').toLowerCase();
+      return name.includes(lowerQuery);
+    }).slice(0, 20);
+  },
+
+  addReview: async (tmdbId: number, reviewId: string, reviewData: any) => {
+    const ref = doc(db, 'reviews', String(tmdbId), 'communityReviews', reviewId);
+    await setDoc(ref, { ...reviewData, createdAt: serverTimestamp() });
+  },
+
+  getReviews: async (tmdbId: number) => {
+    const col = collection(db, 'reviews', String(tmdbId), 'communityReviews');
+    const snap = await getDocs(col);
+    const reviews = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    // client side sort
+    return reviews.sort((a: any, b: any) => {
+      const timeB = b.createdAt?.toMillis?.() || 0;
+      const timeA = a.createdAt?.toMillis?.() || 0;
+      return timeB - timeA;
+    });
+  },
+
+  followUser: async (currentUid: string, targetUid: string) => {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'users', currentUid), { following: arrayUnion(targetUid) }, { merge: true });
+    batch.set(doc(db, 'users', targetUid), { followers: arrayUnion(currentUid) }, { merge: true });
+    await batch.commit();
+  },
+
+  unfollowUser: async (currentUid: string, targetUid: string) => {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'users', currentUid), { following: arrayRemove(targetUid) }, { merge: true });
+    batch.set(doc(db, 'users', targetUid), { followers: arrayRemove(currentUid) }, { merge: true });
+    await batch.commit();
   },
 };

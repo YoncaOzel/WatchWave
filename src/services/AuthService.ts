@@ -16,6 +16,21 @@ export const AuthService = {
   ): Promise<User> => {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName });
+    
+    try {
+      const { FirestoreService } = require('./FirestoreService');
+      await FirestoreService.setUserProfile(credential.user.uid, {
+        displayName,
+        displayNameLowercase: displayName.toLowerCase(),
+        email,
+        followers: [],
+        following: [],
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.log('Failed to create user doc', e);
+    }
+
     return credential.user;
   },
 
