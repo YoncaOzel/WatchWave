@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { useLibraryStore } from '../store/libraryStore';
 import { AuthService } from '../services/AuthService';
+import { FirestoreService } from '../services/FirestoreService';
+import FollowListModal from '../components/FollowListModal';
 import { Typography } from '../theme/typography';
 import { Spacing, BorderRadius } from '../theme/spacing';
 
@@ -36,13 +38,18 @@ function AvatarCircle({ name, size = 72 }: { name: string; size?: number }) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, onPress }: { label: string; value: number; onPress?: () => void }) {
   const { colors } = useThemeStore();
+  const Wrapper = onPress ? TouchableOpacity : View;
   return (
-    <View style={[styles.statCard, { backgroundColor: colors.cardBackground }]}>
+    <Wrapper
+      style={[styles.statCard, { backgroundColor: colors.cardBackground }]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
       <Text style={[styles.statValue, { color: colors.primary }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
+    </Wrapper>
   );
 }
 
@@ -51,6 +58,48 @@ export default function ProfileScreen() {
   const { user, setUser } = useAuthStore();
   const { watchlist, watched, favorites } = useLibraryStore();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [socialStats, setSocialStats] = useState({ followers: 0, following: 0 });
+  const [socialUids, setSocialUids] = useState<{ followers: string[]; following: string[] }>({ followers: [], following: [] });
+  const [followModal, setFollowModal] = useState<{ visible: boolean; type: 'Takipçiler' | 'Takip Edilenler' }>({ visible: false, type: 'Takipçiler' });
+
+  // Lazy-create Firestore profile doc for existing users & load social stats
+  useEffect(() => {
+    if (!user) return;
+    const ensureProfile = async () => {
+      try {
+        const profile = await FirestoreService.getUserProfile(user.uid);
+        if (!profile) {
+          const profileData = {
+            displayName: user.displayName ?? 'Kullanıcı',
+            displayNameLowercase: (user.displayName ?? 'Kullanıcı').toLowerCase(),
+            email: user.email ?? '',
+            followers: [],
+            following: [],
+            createdAt: new Date().toISOString(),
+          };
+          await FirestoreService.setUserProfile(user.uid, profileData);
+        } else {
+          // Migration: if profile exists but displayNameLowercase is missing, add it
+          if (!profile.displayNameLowercase && profile.displayName) {
+            await FirestoreService.setUserProfile(user.uid, {
+              displayNameLowercase: profile.displayName.toLowerCase(),
+            });
+          }
+          setSocialStats({
+            followers: (profile.followers ?? []).length,
+            following: (profile.following ?? []).length,
+          });
+          setSocialUids({
+            followers: profile.followers ?? [],
+            following: profile.following ?? [],
+          });
+        }
+      } catch {
+        // Firestore not configured — ignore
+      }
+    };
+    ensureProfile();
+  }, [user?.uid]);
 
   const avgRating = (() => {
     const rated = watched.filter((i) => i.userRating !== null);
@@ -120,6 +169,19 @@ export default function ProfileScreen() {
           <StatCard label="Favori" value={favorites.length} />
         </View>
 
+        <View style={styles.statsRow}>
+          <StatCard
+            label="Takipçi"
+            value={socialStats.followers}
+            onPress={() => setFollowModal({ visible: true, type: 'Takipçiler' })}
+          />
+          <StatCard
+            label="Takip"
+            value={socialStats.following}
+            onPress={() => setFollowModal({ visible: true, type: 'Takip Edilenler' })}
+          />
+        </View>
+
         {avgRating > 0 && (
           <View style={[styles.avgCard, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.avgLabel, { color: colors.textSecondary }]}>
@@ -173,6 +235,13 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <FollowListModal
+        visible={followModal.visible}
+        title={followModal.type}
+        uids={followModal.type === 'Takipçiler' ? socialUids.followers : socialUids.following}
+        onClose={() => setFollowModal((p) => ({ ...p, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

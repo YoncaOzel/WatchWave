@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeStore } from '../store/themeStore';
 import { MovieService } from '../services/MovieService';
+import { FirestoreService } from '../services/FirestoreService';
 import SearchBar from '../components/SearchBar';
 import FilterChip from '../components/FilterChip';
 import { RootStackParamList } from '../navigation/types';
@@ -58,40 +59,64 @@ export default function SearchScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGrid, setIsGrid] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-
   const [selectedGenre, setSelectedGenre] = useState<number | null>(null);
   const [mediaType, setMediaType] = useState<'all' | 'movie' | 'tv'>('all');
   const [minRating, setMinRating] = useState(0);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const search = useCallback(async (q: string) => {
-    if (!q.trim()) { setResults([]); return; }
+  const [searchMode, setSearchMode] = useState<'content' | 'users'>('content');
+  const [userResults, setUserResults] = useState<any[]>([]);
+
+  const search = useCallback(async (q: string, mode: 'content' | 'users') => {
+    if (!q.trim()) { 
+      setResults([]);
+      setUserResults([]); 
+      return; 
+    }
+    
     setIsLoading(true);
     try {
-      const res = await MovieService.search(q);
-      let filtered = res.results as SearchResult[];
-      if (mediaType !== 'all') {
-        filtered = filtered.filter((r) =>
-          mediaType === 'movie' ? isMovie(r) : !isMovie(r),
-        );
+      if (mode === 'users') {
+        const res = await FirestoreService.searchUsers(q);
+        setUserResults(res);
+      } else {
+        const res = await MovieService.search(q);
+        let filtered = res.results as SearchResult[];
+        if (mediaType !== 'all') {
+          filtered = filtered.filter((r) =>
+            mediaType === 'movie' ? isMovie(r) : !isMovie(r),
+          );
+        }
+        if (minRating > 0) {
+          filtered = filtered.filter((r) => r.vote_average >= minRating);
+        }
+        setResults(filtered);
       }
-      if (minRating > 0) {
-        filtered = filtered.filter((r) => r.vote_average >= minRating);
-      }
-      setResults(filtered);
-    } catch {
+    } catch (e) {
+      console.error('Search error', e);
       setResults([]);
+      setUserResults([]);
     } finally {
       setIsLoading(false);
     }
   }, [mediaType, minRating]);
 
+  // Debounced search on query change
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => search(query), 300);
+    debounceTimer.current = setTimeout(() => search(query, searchMode), 300);
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [query, search]);
+
+  // Immediate re-search when mode switches (so existing text takes effect)
+  useEffect(() => {
+    setResults([]);
+    setUserResults([]);
+    if (query.trim()) {
+      search(query, searchMode);
+    }
+  }, [searchMode]);
 
   const navigateToDetail = (item: SearchResult) => {
     const id = item.id;
@@ -162,17 +187,44 @@ export default function SearchScreen() {
     );
   };
 
+  const renderUserItem = ({ item }: { item: any }) => {
+    const initial = item.displayName ? item.displayName[0].toUpperCase() : '?';
+    return (
+      <TouchableOpacity
+        style={[styles.listItem, { borderBottomColor: colors.border }]}
+        onPress={() => navigation.navigate('PublicProfile', { uid: item.uid })}
+      >
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md }}>
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{initial}</Text>
+        </View>
+        <View style={styles.listInfo}>
+          <Text style={[styles.listTitle, { color: colors.textPrimary }]}>{item.displayName}</Text>
+          <Text style={[styles.listMeta, { color: colors.textSecondary }]}>
+            {(item.followers || []).length} Takipçi
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Başlık */}
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Ara</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => setShowFilters((p) => !p)} style={styles.headerBtn}>
-            <Text style={{ color: showFilters ? colors.primary : colors.textSecondary, fontSize: 13 }}>
-              {showFilters ? '▲ Filtrele' : '▼ Filtrele'}
+          <TouchableOpacity onPress={() => setSearchMode(searchMode === 'content' ? 'users' : 'content')} style={styles.headerBtn}>
+            <Text style={{ color: searchMode === 'users' ? colors.primary : colors.textSecondary, fontSize: 13, marginRight: 8 }}>
+              {searchMode === 'users' ? 'Dizi/Film Ara' : 'Kullanıcı Ara'}
             </Text>
           </TouchableOpacity>
+          {searchMode === 'content' && (
+            <TouchableOpacity onPress={() => setShowFilters((p) => !p)} style={styles.headerBtn}>
+              <Text style={{ color: showFilters ? colors.primary : colors.textSecondary, fontSize: 13 }}>
+                {showFilters ? '▲ Filtrele' : '▼ Filtrele'}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => setIsGrid((p) => !p)} style={styles.headerBtn}>
             <Text style={{ color: colors.textSecondary, fontSize: 18 }}>
               {isGrid ? '☰' : '⊞'}
@@ -239,6 +291,21 @@ export default function SearchScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      ) : searchMode === 'users' ? (
+        <FlatList
+          data={userResults}
+          keyExtractor={(item) => item.uid}
+          renderItem={renderUserItem}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            query.trim() ? (
+              <View style={styles.center}>
+                <Text style={{ fontSize: 48 }}>👤</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Kullanıcı bulunamadı</Text>
+              </View>
+            ) : null
+          }
+        />
       ) : results.length === 0 && query.trim() ? (
         <View style={styles.center}>
           <Text style={{ fontSize: 48 }}>🔍</Text>
