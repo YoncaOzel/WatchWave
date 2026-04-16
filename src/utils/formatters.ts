@@ -10,7 +10,8 @@ export function formatYear(dateStr: string | undefined): string {
   return dateStr.substring(0, 4);
 }
 
-export function formatRating(rating: number): string {
+export function formatRating(rating: number | undefined | null): string {
+  if (rating === undefined || rating === null) return '0.0';
   return rating.toFixed(1);
 }
 

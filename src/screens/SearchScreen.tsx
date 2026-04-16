@@ -64,6 +64,7 @@ export default function SearchScreen() {
   const [minRating, setMinRating] = useState(0);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchIdRef = useRef(0);
 
   const [searchMode, setSearchMode] = useState<'content' | 'users'>('content');
   const [userResults, setUserResults] = useState<any[]>([]);
@@ -75,30 +76,40 @@ export default function SearchScreen() {
       return; 
     }
     
+    const currentSearchId = ++searchIdRef.current;
     setIsLoading(true);
+
     try {
       if (mode === 'users') {
         const res = await FirestoreService.searchUsers(q);
+        if (currentSearchId !== searchIdRef.current) return;
         setUserResults(res);
       } else {
         const res = await MovieService.search(q);
-        let filtered = res.results as SearchResult[];
+        if (currentSearchId !== searchIdRef.current) return;
+        
+        let filtered = (res.results as any[]).filter((r) => r.media_type !== 'person');
+
         if (mediaType !== 'all') {
           filtered = filtered.filter((r) =>
             mediaType === 'movie' ? isMovie(r) : !isMovie(r),
           );
         }
         if (minRating > 0) {
-          filtered = filtered.filter((r) => r.vote_average >= minRating);
+          filtered = filtered.filter((r) => (r.vote_average ?? 0) >= minRating);
         }
-        setResults(filtered);
+        setResults(filtered as SearchResult[]);
       }
     } catch (e) {
       console.error('Search error', e);
-      setResults([]);
-      setUserResults([]);
+      if (currentSearchId === searchIdRef.current) {
+        setResults([]);
+        setUserResults([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (currentSearchId === searchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [mediaType, minRating]);
 
