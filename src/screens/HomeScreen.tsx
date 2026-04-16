@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeStore } from '../store/themeStore';
 import { useLibraryStore, ListType, LibraryItem } from '../store/libraryStore';
 import { useProgressStore } from '../store/progressStore';
+import { useAuthStore } from '../store/authStore';
 import { useMovies } from '../hooks/useMovies';
 import HeroBanner from '../components/HeroBanner';
 import CategoryRow, { CategoryItem } from '../components/CategoryRow';
@@ -33,8 +34,9 @@ export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { popularMovies, nowPlaying, topRated, popularTV, onTheAir, isLoading, error, refresh } =
     useMovies();
-  const { addItem, isInList } = useLibraryStore();
+  const { addItem, addItemToCustomList, isInList } = useLibraryStore();
   const { progress } = useProgressStore();
+  const { user } = useAuthStore();
   const continueWatching = Object.values(progress).sort((a, b) => b.lastUpdated - a.lastUpdated);
 
   const [sheetItem, setSheetItem] = useState<CategoryItem | null>(null);
@@ -77,7 +79,7 @@ export default function HomeScreen() {
     navigation.navigate('Detail', { id, mediaType });
   };
 
-  const handleAddToList = (list: ListType) => {
+  const handleAddToList = (listId: string, isCustom: boolean) => {
     if (!sheetItem) return;
     const item: LibraryItem = {
       tmdbId: sheetItem.id,
@@ -88,7 +90,21 @@ export default function HomeScreen() {
       userRating: null,
       userNote: null,
     };
-    addItem(list, item);
+    
+    if (isCustom) {
+      addItemToCustomList(listId, item);
+      if (user) {
+        const cl = useLibraryStore.getState().customLists.find(c => c.id === listId);
+        import('../services/FirestoreService').then(m => {
+          if (cl) m.FirestoreService.saveCustomList(user.uid, { ...cl, items: [...cl.items, item] });
+        });
+      }
+    } else {
+      addItem(listId as ListType, item);
+      import('../services/FirestoreService').then(m => {
+        if (user) m.FirestoreService.addItem(user.uid, listId as ListType, item);
+      });
+    }
   };
 
   if (isLoading && !refreshing) {

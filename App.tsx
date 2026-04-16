@@ -4,6 +4,7 @@ import { NavigationContainer, DarkTheme, Theme } from '@react-navigation/native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 import AppNavigator from './src/navigation/AppNavigator';
 import NetworkBanner from './src/components/NetworkBanner';
 import { useThemeStore } from './src/store/themeStore';
@@ -58,10 +59,24 @@ function AppContent() {
   const { isDark, colors } = useThemeStore();
   const navTheme = buildNavTheme(isDark);
 
+  const linking = {
+    prefixes: [Linking.createURL('/'), 'watchwave://'],
+    config: {
+      screens: {
+        SharedList: 'shared-list/:uid/:listId',
+        Main: {
+          screens: {
+            Home: 'home',
+          },
+        },
+      },
+    },
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
-        <NavigationContainer theme={navTheme}>
+        <NavigationContainer theme={navTheme} linking={linking}>
           <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.background} />
           <AppNavigator />
           <NetworkBanner />

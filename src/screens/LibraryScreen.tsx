@@ -8,7 +8,10 @@ import {
   Modal,
   TextInput,
   Alert,
+  ScrollView,
+  Share,
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -41,17 +44,21 @@ interface EditModalState {
 export default function LibraryScreen() {
   const { colors } = useThemeStore();
   const { user } = useAuthStore();
-  const { watchlist, watched, favorites, removeItem, moveItem, updateItem, setList } =
+  const { watchlist, watched, favorites, customLists, removeItem, removeItemFromCustomList, moveItem, updateItem, addCustomList, setList } =
     useLibraryStore();
   const navigation = useNavigation<Nav>();
 
-  const [activeTab, setActiveTab] = useState<ListType>('watchlist');
+  const [activeTab, setActiveTab] = useState<string>('watchlist');
+  const [isCreateListVisible, setCreateListVisible] = useState(false);
+  const [newListName, setNewListName] = useState('');
   const [editModal, setEditModal] = useState<EditModalState | null>(null);
   const [editRating, setEditRating] = useState<number | null>(null);
   const [editNote, setEditNote] = useState('');
 
   const lists: Record<ListType, LibraryItem[]> = { watchlist, watched, favorites };
-  const currentItems = lists[activeTab];
+  const isCustomTab = !['watchlist', 'watched', 'favorites'].includes(activeTab);
+  const currentCustomList = isCustomTab ? customLists.find((cl) => cl.id === activeTab) : null;
+  const currentItems = isCustomTab ? (currentCustomList?.items ?? []) : lists[activeTab as ListType];
 
   const syncToFirestore = async (list: ListType, items: LibraryItem[]) => {
     if (!user) return;
@@ -62,16 +69,24 @@ export default function LibraryScreen() {
     }
   };
 
-  const handleDelete = (list: ListType, tmdbId: number) => {
+  const handleDelete = (listId: string, tmdbId: number) => {
     Alert.alert('Sil', 'Bu içeriği listeden çıkarmak istiyor musunuz?', [
       { text: 'İptal', style: 'cancel' },
       {
         text: 'Sil',
         style: 'destructive',
         onPress: () => {
-          removeItem(list, tmdbId);
-          const updated = lists[list].filter((i) => i.tmdbId !== tmdbId);
-          syncToFirestore(list, updated);
+          if (isCustomTab) {
+            removeItemFromCustomList(listId, tmdbId);
+            if (user && currentCustomList) {
+              const updatedItems = currentCustomList.items.filter(i => i.tmdbId !== tmdbId);
+              FirestoreService.saveCustomList(user.uid, { ...currentCustomList, items: updatedItems }).catch(() => {});
+            }
+          } else {
+            removeItem(listId as ListType, tmdbId);
+            const updated = lists[listId as ListType].filter((i) => i.tmdbId !== tmdbId);
+            syncToFirestore(listId as ListType, updated);
+          }
         },
       },
     ]);
@@ -104,6 +119,7 @@ export default function LibraryScreen() {
   const saveEdit = () => {
     if (!editModal) return;
     const { item, list } = editModal;
+    // We only allow editing user rating and notes on the 'watched' list for now.
     updateItem(list, item.tmdbId, { userRating: editRating, userNote: editNote || null });
     if (user) {
       FirestoreService.updateItem(user.uid, list, item.tmdbId, {
@@ -114,6 +130,35 @@ export default function LibraryScreen() {
     setEditModal(null);
   };
 
+  const handleShareList = async () => {
+    if (!user || !currentCustomList) return;
+    const shareUrl = Linking.createURL(`shared-list/${user.uid}/${currentCustomList.id}`);
+    try {
+      await Share.share({
+        message: `🎬 "${currentCustomList.name}" adlı izleme listemi WatchWave'de incele!\n\n${shareUrl}`,
+        title: 'Film/Dizi Listemi Paylaş',
+      });
+    } catch (e) { }
+  };
+
+  const handleCreateList = () => {
+    if (!newListName.trim()) return;
+    const newList = {
+      id: Date.now().toString(),
+      name: newListName.trim(),
+      description: '',
+      isPublic: true,
+      items: [],
+    };
+    addCustomList(newList);
+    if (user) {
+      FirestoreService.saveCustomList(user.uid, newList).catch(() => {});
+    }
+    setNewListName('');
+    setCreateListVisible(false);
+    setActiveTab(newList.id);
+  };
+
   const renderItem = ({ item }: { item: LibraryItem }) => {
     const imageUri = buildPosterUrl(item.posterPath);
     const canEdit = activeTab === 'watched';
@@ -121,7 +166,7 @@ export default function LibraryScreen() {
     return (
       <SwipeableListItem
         onDelete={() => handleDelete(activeTab, item.tmdbId)}
-        onMove={() => handleMove(activeTab, item)}
+        onMove={isCustomTab ? undefined : () => handleMove(activeTab as ListType, item)}
         moveLabel="Taşı"
       >
         <TouchableOpacity
@@ -170,44 +215,84 @@ export default function LibraryScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       {/* Başlık */}
-      <View style={styles.header}>
+      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Kütüphanem</Text>
+        {isCustomTab && currentCustomList && (
+          <TouchableOpacity onPress={handleShareList} style={{ paddingHorizontal: 8 }}>
+            <Text style={{ fontSize: 22 }}>🔗</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tab Bar */}
-      <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, isActive && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <Text style={{ fontSize: 16 }}>{tab.icon}</Text>
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: isActive ? colors.primary : colors.textSecondary },
-                ]}
+      <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, marginBottom: Spacing.xs }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, isActive && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+                onPress={() => setActiveTab(tab.key)}
               >
-                {tab.label}
-              </Text>
-              <View style={[styles.badge, { backgroundColor: isActive ? colors.primary : colors.border }]}>
-                <Text style={styles.badgeText}>{lists[tab.key].length}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+                <Text style={{ fontSize: 16 }}>{tab.icon}</Text>
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: isActive ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+                <View style={[styles.badge, { backgroundColor: isActive ? colors.primary : colors.border }]}>
+                  <Text style={styles.badgeText}>{lists[tab.key].length}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          
+          {customLists.map((cl) => {
+            const isActive = activeTab === cl.id;
+            return (
+              <TouchableOpacity
+                key={cl.id}
+                style={[styles.tab, isActive && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+                onPress={() => setActiveTab(cl.id)}
+              >
+                <Text style={{ fontSize: 16 }}>📁</Text>
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: isActive ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  {cl.name}
+                </Text>
+                <View style={[styles.badge, { backgroundColor: isActive ? colors.primary : colors.border }]}>
+                  <Text style={styles.badgeText}>{cl.items.length}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => setCreateListVisible(true)}
+          >
+            <Text style={{ fontSize: 16 }}>➕</Text>
+            <Text style={[styles.tabLabel, { color: colors.textSecondary }]}>Yeni Liste</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* İçerik */}
       {currentItems.length === 0 ? (
         <View style={styles.empty}>
           <Text style={{ fontSize: 48 }}>
-            {TABS.find((t) => t.key === activeTab)?.icon}
+            {isCustomTab ? '📁' : TABS.find((t) => t.key === activeTab)?.icon}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            {isCustomTab && 'Bu liste henüz boş. Keşfetmeye başla!'}
             {activeTab === 'watchlist' && 'İzlemek istediğin içerikleri buraya ekle'}
             {activeTab === 'watched' && 'İzlediğin içerikler burada görünür'}
             {activeTab === 'favorites' && 'Favori içeriklerini buraya ekle'}
@@ -276,6 +361,46 @@ export default function LibraryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Yeni Liste Modal'ı */}
+      <Modal
+        visible={isCreateListVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCreateListVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Yeni Liste Oluştur</Text>
+            <TextInput
+              style={[
+                styles.listInput,
+                { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.border },
+              ]}
+              placeholder="Liste Adı (Örn: Hafta Sonu Filmleri)"
+              placeholderTextColor={colors.textSecondary}
+              value={newListName}
+              onChangeText={setNewListName}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => setCreateListVisible(false)}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.textSecondary }]}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: colors.primary, opacity: newListName.trim() ? 1 : 0.5 }]}
+                onPress={handleCreateList}
+                disabled={!newListName.trim()}
+              >
+                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Oluştur</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -284,21 +409,20 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: { paddingHorizontal: Spacing.base, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
   headerTitle: { fontSize: Typography.fontSize.xl, fontWeight: Typography.fontWeight.bold },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.xs,
+  tabScroll: {
+    paddingHorizontal: Spacing.sm,
   },
   tab: {
-    flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    minWidth: 80,
     gap: 2,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabLabel: { fontSize: 10, fontWeight: Typography.fontWeight.medium },
+  tabLabel: { fontSize: 10, fontWeight: Typography.fontWeight.medium, textAlign: 'center' },
   badge: {
     minWidth: 18,
     height: 18,
@@ -353,4 +477,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalBtnText: { fontSize: Typography.fontSize.base, fontWeight: Typography.fontWeight.semiBold },
+  modalBox: {
+    width: '85%',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignSelf: 'center',
+    marginBottom: 100, // Keyboard clearance
+  },
+  listInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    fontSize: Typography.fontSize.base,
+  },
 });

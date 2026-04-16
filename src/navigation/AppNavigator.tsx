@@ -87,6 +87,12 @@ export default function AppNavigator() {
         component={require('../screens/PublicProfileScreen').default}
         options={{ animation: 'slide_from_right' }}
       />
+      <Stack.Screen
+        name="SharedList"
+        // @ts-ignore dynamic import placeholder
+        component={require('../screens/SharedListScreen').default}
+        options={{ presentation: 'modal' }}
+      />
     </Stack.Navigator>
   );
 }

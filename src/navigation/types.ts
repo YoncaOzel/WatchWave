@@ -16,4 +16,5 @@ export type RootStackParamList = {
   Main: undefined;
   Detail: { id: number; mediaType: MediaType };
   PublicProfile: { uid: string };
+  SharedList: { uid: string; listId: string };
 };

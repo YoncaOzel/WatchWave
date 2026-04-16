@@ -59,7 +59,7 @@ export default function DetailScreen({ route, navigation }: Props) {
   const { id, mediaType } = route.params;
   const { colors } = useThemeStore();
   const { user } = useAuthStore();
-  const { addItem, removeItem, isInList, updateItem, watched } = useLibraryStore();
+  const { addItem, addItemToCustomList, removeItem, isInList, updateItem, watched, customLists } = useLibraryStore();
 
   const [detail, setDetail] = useState<MovieDetail | TvDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -563,7 +563,7 @@ export default function DetailScreen({ route, navigation }: Props) {
         visible={showListSheet}
         title={title}
         onClose={() => setShowListSheet(false)}
-        onSelect={(list) => {
+        onSelect={(listId, isCustom) => {
           if (!detail) return;
           const item: LibraryItem = {
             tmdbId: id,
@@ -574,8 +574,16 @@ export default function DetailScreen({ route, navigation }: Props) {
             userRating: null,
             userNote: null,
           };
-          addItem(list, item);
-          syncFirestore(list, item);
+          if (isCustom) {
+            addItemToCustomList(listId, item);
+            if (user) {
+              const cl = useLibraryStore.getState().customLists.find(c => c.id === listId);
+              if (cl) FirestoreService.saveCustomList(user.uid, { ...cl, items: [...cl.items, item] });
+            }
+          } else {
+            addItem(listId as ListType, item);
+            syncFirestore(listId as ListType, item);
+          }
         }}
       />
     </>

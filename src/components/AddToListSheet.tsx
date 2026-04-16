@@ -11,19 +11,19 @@ import {
 import { useThemeStore } from '../store/themeStore';
 import { Typography } from '../theme/typography';
 import { Spacing, BorderRadius } from '../theme/spacing';
-import { ListType } from '../store/libraryStore';
+import { ListType, useLibraryStore } from '../store/libraryStore';
 
 interface AddToListSheetProps {
   visible: boolean;
   title: string;
   onClose: () => void;
-  onSelect: (list: ListType) => void;
+  onSelect: (listId: string, isCustom: boolean) => void;
 }
 
-const LIST_OPTIONS: { list: ListType; label: string; icon: string }[] = [
-  { list: 'watchlist', label: 'İzleneceklere Ekle', icon: '📋' },
-  { list: 'watched', label: 'İzlediklerime Ekle', icon: '✅' },
-  { list: 'favorites', label: 'Favorilere Ekle', icon: '❤️' },
+const LIST_OPTIONS: { list: string; label: string; icon: string; isCustom: boolean }[] = [
+  { list: 'watchlist', label: 'İzleneceklere Ekle', icon: '📋', isCustom: false },
+  { list: 'watched', label: 'İzlediklerime Ekle', icon: '✅', isCustom: false },
+  { list: 'favorites', label: 'Favorilere Ekle', icon: '❤️', isCustom: false },
 ];
 
 export default function AddToListSheet({
@@ -52,15 +52,27 @@ export default function AddToListSheet({
             {title}
           </Text>
 
-          {LIST_OPTIONS.map(({ list, label, icon }) => (
+          {LIST_OPTIONS.map(({ list, label, icon, isCustom }) => (
             <TouchableOpacity
-              key={list}
+              key={`system-${list}`}
               style={[styles.option, { borderBottomColor: colors.border }]}
-              onPress={() => { onSelect(list); onClose(); }}
+              onPress={() => { onSelect(list, isCustom); onClose(); }}
               activeOpacity={0.7}
             >
               <Text style={styles.optionIcon}>{icon}</Text>
               <Text style={[styles.optionLabel, { color: colors.textPrimary }]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {useLibraryStore.getState().customLists.map((cl) => (
+            <TouchableOpacity
+              key={`custom-${cl.id}`}
+              style={[styles.option, { borderBottomColor: colors.border }]}
+              onPress={() => { onSelect(cl.id, true); onClose(); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.optionIcon}>📁</Text>
+              <Text style={[styles.optionLabel, { color: colors.textPrimary }]}>{cl.name}</Text>
             </TouchableOpacity>
           ))}
 
