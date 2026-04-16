@@ -59,10 +59,19 @@ export const FirestoreService = {
 
   /** T-87: Tüm listeleri tek seferde paralel getDoc ile çek (3 okuma) */
   loadAllLists: async (uid: string): Promise<Record<ListType, LibraryItem[]>> => {
+    const fetchList = async (type: ListType) => {
+      try {
+        return await FirestoreService.getList(uid, type);
+      } catch (e) {
+        console.warn(`Could not load list ${type} for user ${uid}`, e);
+        return [];
+      }
+    };
+
     const [watchlist, watched, favorites] = await Promise.all([
-      FirestoreService.getList(uid, 'watchlist'),
-      FirestoreService.getList(uid, 'watched'),
-      FirestoreService.getList(uid, 'favorites'),
+      fetchList('watchlist'),
+      fetchList('watched'),
+      fetchList('favorites'),
     ]);
     return { watchlist, watched, favorites };
   },
