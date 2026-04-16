@@ -336,9 +336,10 @@ export default function SearchScreen() {
         </View>
       ) : isGrid ? (
         <FlatList
+          key="grid-list"
           data={results}
           numColumns={2}
-          keyExtractor={(item) => `${item.id}`}
+          keyExtractor={(item) => `grid-${item.id}`}
           renderItem={renderGridItem}
           contentContainerStyle={styles.gridList}
           columnWrapperStyle={styles.gridRow}
@@ -346,8 +347,9 @@ export default function SearchScreen() {
         />
       ) : (
         <FlatList
+          key="list-view"
           data={results}
-          keyExtractor={(item) => `${item.id}`}
+          keyExtractor={(item) => `list-${item.id}`}
           renderItem={renderListItem}
           showsVerticalScrollIndicator={false}
         />
