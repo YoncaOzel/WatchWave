@@ -11,6 +11,7 @@ export type BottomTabParamList = {
   Library: undefined;
   Profile: undefined;
   AiCoach: undefined;
+  Discovery: undefined;
 };
 
 export type RootStackParamList = {
