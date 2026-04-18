@@ -5,6 +5,7 @@ import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import AiCoachScreen from '../screens/AiCoachScreen';
 import { BottomTabParamList } from './types';
 import { useThemeStore } from '../store/themeStore';
 
@@ -17,6 +18,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     Search: '⌕',
     Library: '⊟',
     Profile: '⊙',
+    AiCoach: '✨',
   };
   return (
     <Text style={{ fontSize: 22, color: focused ? colors.primary : colors.textSecondary }}>
@@ -50,6 +52,7 @@ export default function MainTabs() {
       <Tab.Screen name="Search" component={SearchScreen} options={{ tabBarLabel: 'Ara' }} />
       <Tab.Screen name="Library" component={LibraryScreen} options={{ tabBarLabel: 'Kütüphane' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profil' }} />
+      <Tab.Screen name="AiCoach" component={AiCoachScreen} options={{ tabBarLabel: 'Asistan' }} />
     </Tab.Navigator>
   );
 }
